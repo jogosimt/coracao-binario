@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css">
+  <style>
+
+  .fullscreen {
+    position: absolute;
+    right: 5px;
+    bottom: 5px;
+  }
+
+  .bpm {
+    width: 50%;
+    overflow-y: hidden;
+    text-align: right;
+    position: absolute;
+    right: 0px;
+    top: 50%;
+    color: rgb(170, 184, 194);
+    font-size: 24pt;
+    font-weight: bold;
+    margin-top: -50px;
+    border-bottom: 5px solid rgba(255, 0, 0, 0.4);
+    background-color: white;
+  }
+  body {
+    overflow-y: hidden;
+    -webkit-user-select: none;
+  }
+
+  .canvas {
+
+/*transition: background 5s ease-in-out;*/
+
+transition: background .5s;
+transition-duration: .5s;
+
+    background-color: rgb(0, 75, 114); /*rgb(0, 80, 50); /*rgb(60, 60, 60); /*rgba(166, 105, 166, 1);*/
+
+
+                  background-size: 150px 150px, 150px 150px, 50px 50px, 50px 50px;
+                  background-position: -5px 0px;
+                  background-image: linear-gradient(rgba(250,250,250,.3) 1px, transparent 1px),
+                                    linear-gradient(90deg, rgba(250,250,250,.3) 1px, transparent 1px),
+                                    linear-gradient(rgba(250,250,250,.3) 1px, transparent 1px),
+                                    linear-gradient(90deg, rgba(250,250,250,.3) 1px, transparent 1px);
+  }
+
+  .canvas.darker {
+    background: radial-gradient(rgba(255, 0, 0, 0.7), rgba(166, 105, 166, 1));
+    transition: .5s;
+  }
+
+  @media (orientation: landscape) {
+    canvas {
+      width: 100vw;
+      height: 100vh;
+    }
+  }
+  @media (orientation: portrait) {
+    canvas {
+      width: 100vw;
+      height: 100vh;
+    }
+  }
+
+  .heart {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-top: -50px;
+    margin-left: -50px;
+    border-radius: 50px;
+    width: 100px;
+    height: 100px;
+    background: url("heart.png") no-repeat;
+    cursor: pointer;
+    transition: background-position 1s steps(28);
+    transition-duration: 0s;
+    box-shadow: 0px 0px 60px rgba(255, 0, 0, 0.7);
+  }
+
+  .heart.is-active {
+    transition-duration: 1s;
+    background-position: -2800px 0;
+
+  }
+
+  footer {
+    position: absolute;
+    bottom: 5px;
+    left: 5px;
+    width: 50%;
+    border: 1px solid white;
+    border-radius: 5px;
+    color: white;
+  }
+
+  </style>
+  <script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
+  <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment-with-locales.min.js"></script>
+  <script src="http://code.jquery.com/color/jquery.color.plus-names-2.1.2.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.11.4/paper-full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.0.4/howler.min.js"></script>
+
+
+
+  <script type="text/javascript">
+
+  function toAscii(bin) {
+    return bin.replace(/\s*[01]{8}\s*/g, function(bin) {
+      codePoint = parseInt(bin, 2);
+      if ((codePoint >= 48 && codePoint <= 57) || (codePoint >= 65 && codePoint <= 90) || (codePoint >= 97 && codePoint <= 122)) {
+        return String.fromCharCode(codePoint);
+      } else {
+        return '';
+      }
+    })
+  }
+
+  function toggleFullScreen() {
+  if (!document.fullscreenElement &&    // alternative standard method
+      !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement ) {  // current working methods
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen();
+    } else if (document.documentElement.msRequestFullscreen) {
+      document.documentElement.msRequestFullscreen();
+    } else if (document.documentElement.mozRequestFullScreen) {
+      document.documentElement.mozRequestFullScreen();
+    } else if (document.documentElement.webkitRequestFullscreen) {
+      document.documentElement.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+      document.mozCancelFullScreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+  }
+}
+
+
+
+
+  PULSACAO_MAXIMA = 130;
+  PULSACAO_MINIMA = 80;
+
+
+  pulsacao = '';
+  pulsou = false;
+
+  larguraPulso = 0;
+  alturaPulso = PULSACAO_MINIMA;
+  batidas = 0;
+  horaInicial = moment();
+
+  binario = '';
+
+  sound = new Howl({
+    src: ['flatline.mp3'],
+    loop: false,
+    volume: 1
+  });
+
+  function medirPulsacao() {
+    hora = ' ' + moment().format('LTS') + '<br>';
+
+    if (larguraTela > larguraTelaAntes) {
+      if (pulsacao == '↑') {
+        pulsou = true;
+        batidas++;
+      }
+
+      pulsacao = '↓';
+      //$('footer').append(pulsacao).append(hora);
+
+    } else if (larguraTela < larguraTelaAntes) {
+      if (pulsacao == '↓') {
+        pulsou = true;
+        batidas++;
+      }
+
+      pulsacao = '↑';
+      //$('footer').append(pulsacao).append(hora);
+    }
+
+
+  }
+
+  function desenhar() {
+    var duration = moment.duration(moment().diff(horaInicial));
+    var minutes = duration.asMinutes();
+    $('.bpm').text(Math.round(batidas/minutes) + ' bpm');
+
+
+    if (larguraPulso > $('.canvas').width()) {
+      project.activeLayer.removeChildren();
+
+      binaryBackground = new Path.Rectangle(0, 0, $(canvas).width(), 30);
+      binaryBackground.fillColor = 'rgba(255, 255, 255, 0.4)';
+
+      myPath = new Path();
+
+      myPath.strokeColor =  'lightblue';
+      myPath.strokeWidth = 3;
+
+      myPath.shadowColor = 'lightblue';
+      myPath.shadowBlur = 12;
+      myPath.shadowOffset = new Point(0, 1);
+
+      myPath2 = new Path();
+
+      myPath2.strokeColor =  'lightblue';
+      myPath2.strokeWidth = 3;
+
+      myPath2.shadowColor = 'lightblue';
+      myPath2.shadowBlur = 12;
+      myPath2.shadowOffset = new Point(0, 1);
+
+      larguraPulso = 0;
+    }
+
+    if (!pulsou) {
+      binario = binario + '0';
+
+      alturaPulso = PULSACAO_MINIMA;
+
+      var text0 = new PointText(new Point(larguraPulso, PULSACAO_MINIMA - (PULSACAO_MAXIMA - PULSACAO_MINIMA) - 5));
+      text0.content = '0';
+      text0.style = {
+        fontFamily: 'arial',
+        fontWeight: 'normal',
+        fontSize: 14,
+        fillColor: 'lightgray',
+        justification: 'center'
+      };
+
+      myCircle.remove();
+
+      myCircle = new Path.Circle(new Point(larguraPulso, alturaPulso), 3);
+      myCircle.fillColor = 'lightblue';
+      myCircle.shadowColor = 'lightblue';
+      myCircle.shadowBlur = 12;
+      myCircle.shadowOffset = new Point(0, 1);
+
+      myPath.add(new Point(larguraPulso, alturaPulso));
+
+      myPath2.add(new Point(larguraPulso, alturaPulso + 80));
+
+
+
+      larguraPulso = larguraPulso + 10;
+    } else {
+      binario = binario + '1';
+
+      alturaPulso = PULSACAO_MINIMA - (PULSACAO_MAXIMA - PULSACAO_MINIMA);
+
+      var text1 = new PointText(new Point(larguraPulso, PULSACAO_MINIMA - (PULSACAO_MAXIMA - PULSACAO_MINIMA) - 5));
+      text1.content = '1';
+      text1.style = {
+        fontFamily: 'arial',
+        fontWeight: 'normal',
+        fontSize: 18,
+        fillColor: 'lightgray', //white
+        justification: 'center'
+      };
+
+      myCircle.remove();
+
+      myCircle = new Path.Circle(new Point(larguraPulso, alturaPulso), 3);
+      myCircle.fillColor = 'white';
+
+      myPath.add(new Point(larguraPulso, alturaPulso));
+      myPath.add(new Point(larguraPulso, PULSACAO_MINIMA + 10));
+
+      myPath2.add(new Point(larguraPulso, alturaPulso + 80));
+
+      sound.play();
+      setTimeout(function() {sound.stop();}, 600);
+
+
+      $('.heart').addClass('is-active');
+      setTimeout(function(){$('.heart').removeClass('is-active');}, 500);
+
+      $('canvas').addClass('darker');
+      setTimeout(function(){$('canvas').removeClass('darker');}, 500);
+
+
+      pulsou = false;
+
+      larguraPulso = larguraPulso + 10;
+    }
+
+
+
+    myPath.smooth();
+  }
+
+  paper.install(window);
+
+  $(document).on("ready", function() {
+    canvas = $('.canvas')[0];
+    paper.setup(canvas);
+
+    binaryBackground = new Path.Rectangle(0, 0, $(canvas).width(), 30);
+    binaryBackground.fillColor = 'rgba(255, 255, 255, 0.4)';
+
+    myPath = new Path();
+    myPath.strokeColor =  'lightblue';
+    myPath.strokeWidth = 3;
+
+    myPath.shadowColor = 'lightblue';
+    myPath.shadowBlur = 12;
+    myPath.shadowOffset = new Point(0, 1);
+
+    myPath2 = new Path();
+
+    myPath2.strokeColor =  'lightblue';
+    myPath2.strokeWidth = 3;
+
+    myPath2.shadowColor = 'lightblue';
+    myPath2.shadowBlur = 12;
+    myPath2.shadowOffset = new Point(0, 1);
+
+    myCircle = new Path.Circle(new Point(larguraPulso, alturaPulso), 3);
+
+    myCircle.shadowBlur = 12;
+
+    myCircle.fillColor = 'lightblue';
+    myCircle.shadowColor = 'lightblue';
+
+    myCircle.shadowOffset = new Point(0, 1);
+
+    setInterval(desenhar, 250);
+
+    $(document).on("scrollstart", function(e) {
+      if (e.originalEvent.changedTouches) {
+        larguraTela = Math.trunc(e.originalEvent.changedTouches[0].screenX);
+        alturaTela = Math.trunc(e.originalEvent.changedTouches[0].screenY);
+      } else {
+        larguraTela = 0;
+        alturaTela = 0;
+      }
+
+      if (typeof larguraTelaAntes != "undefined") {
+          medirPulsacao();
+      }
+
+      larguraTelaAntes = larguraTela;
+      alturaTelaAntes = alturaTela;
+    });
+  });
+  </script>
+</head>
+<body>
+
+
+  <canvas class="canvas" resize></canvas>
+  <div class="bpm">0 bpm</div>
+  <div class="heart"></div>
+  <div class="fullscreen"><label><input type="checkbox" onclick="toggleFullScreen();" data-mini="true"> Tela cheia</label></div>
+
+
+</body>
+</html>
